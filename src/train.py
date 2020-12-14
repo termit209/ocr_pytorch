@@ -6,6 +6,7 @@ from sklearn import metrics
 
 from config import *
 from dataset import OcrDataset
+form dataset import SynthCollator
 
 from model import OcrModel_v0
 from train_utils import train, evaluate
@@ -33,7 +34,8 @@ def fit():
         train_dataset,
         batch_size=BATCH_SIZE,
         num_workers=NUM_WORKERS,
-        shuffle=True
+        shuffle=True,
+        collate_fn=SynthCollator()
     )
     
     
@@ -46,7 +48,8 @@ def fit():
         test_dataset,
         batch_size=BATCH_SIZE,
         num_workers=NUM_WORKERS,
-        shuffle=False
+        shuffle=False,
+        collate_fn=SynthCollator()
     )
         
     model = OcrModel_v0(num_characters=len(labels_encoded.classes_))
