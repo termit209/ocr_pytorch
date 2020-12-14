@@ -6,7 +6,7 @@ from sklearn import metrics
 
 from config import *
 from dataset import OcrDataset
-form dataset import SynthCollator
+from dataset import SynthCollator
 
 from model import OcrModel_v0
 from train_utils import train, evaluate
