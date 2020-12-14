@@ -63,3 +63,21 @@ class OcrDataset:
             "images": torch.tensor(image, dtype=torch.float),
             "labels": torch.tensor(labels, dtype=torch.long)
         }
+
+class SynthCollator(object):
+    
+    def __call__(self, batch):
+        #width = [item['images'].shape[2] for item in batch]
+        labels = [item['labels'].shape for item in batch]
+        max_label_lenght = max(labels) #torch.Size(np.array(max(labels)) + 7) #max(labels)
+        for item in batch:
+          target = torch.zeros(max_label_lenght)
+          source_lenght = list(item['labels'].shape)[0]
+          target[:source_lenght]=item['labels']
+          item['labels']=target
+        imgs = [item['images'] for item in batch]
+        labels = [item['labels'] for item in batch]
+        imgs=torch.stack(imgs)
+        labels = torch.stack(labels)
+        item={'images':imgs,'labels': labels}
+        return item

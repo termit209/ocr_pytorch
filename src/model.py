@@ -4,6 +4,7 @@ from torch.nn import functional as F
 
 
 
+
 class OcrModel_v0(nn.Module):
     def __init__(self, num_characters):
         super(OcrModel_v0, self).__init__()
