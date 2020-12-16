@@ -8,6 +8,7 @@ from albumentations import Compose, Normalize, MedianBlur, GaussianBlur, \
 
 from PIL import Image
 
+
 class OcrDataset: 
     """
     Handle images for dataloader.
@@ -64,12 +65,13 @@ class OcrDataset:
             "labels": torch.tensor(labels, dtype=torch.long)
         }
 
+
 class SynthCollator(object):
     
     def __call__(self, batch):
-        #width = [item['images'].shape[2] for item in batch]
-        labels = [item['labels'].shape for item in batch]
-        max_label_lenght = max(labels) #torch.Size(np.array(max(labels)) + 7) #max(labels)
+        label_size = [item['labels'].shape for item in batch]
+
+        max_label_lenght = max(label_size) #torch.Size(np.array(max(labels)) + 7) #max(labels)
         for item in batch:
           target = torch.zeros(max_label_lenght)
           source_lenght = list(item['labels'].shape)[0]
@@ -79,5 +81,5 @@ class SynthCollator(object):
         labels = [item['labels'] for item in batch]
         imgs=torch.stack(imgs)
         labels = torch.stack(labels)
-        item={'images':imgs,'labels': labels}
+        item={'images':imgs,'labels': labels, 'label_size':torch.flatten(torch.tensor(label_size))}
         return item
