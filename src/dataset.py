@@ -52,7 +52,11 @@ class OcrDataset:
         labels = self.labels[item]
         
         if self.resize is not None:
-            image = image.resize((self.resize[1], self.resize[0]), resample=Image.BILINEAR)
+            new_im = Image.new("RGB", (self.resize[1], self.resize[0]))
+            image = image.resize((self.resize[1], int(self.resize[1] / image.size[0] * image.size[1])),
+                                 resample=Image.BILINEAR)
+            new_im.paste(image, (0, (self.resize[0] - image.size[1]) // 2))
+            image = new_im
             
         
         image = np.array(image)
