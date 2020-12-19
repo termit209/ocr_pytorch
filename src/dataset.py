@@ -1,5 +1,6 @@
 import torch 
 import numpy as np
+from random import randint
 from albumentations import Compose, Normalize, MedianBlur, GaussianBlur, \
     MotionBlur, GaussNoise, MultiplicativeNoise, Cutout, \
     CoarseDropout, GridDistortion, ElasticTransform, \
@@ -16,10 +17,11 @@ class OcrDataset:
     Put attention to resize PIL: first goes width then height
     """
     
-    def __init__(self, image_path, labels, resize=None):
+    def __init__(self, image_path, labels, resize=None, random_flag=False):
         self.image_path = image_path
         self.labels = labels
         self.resize = resize
+        self.random_flag = random_flag
         self.augmentations = Compose(
             [
             Normalize(always_apply=True),
@@ -52,11 +54,7 @@ class OcrDataset:
         labels = self.labels[item]
         
         if self.resize is not None:
-            new_im = Image.new("RGB", (self.resize[1], self.resize[0]))
-            image = image.resize((self.resize[1], int(self.resize[1] / image.size[0] * image.size[1])),
-                                 resample=Image.BILINEAR)
-            new_im.paste(image, (0, (self.resize[0] - image.size[1]) // 2))
-            image = new_im
+            image = self.make_padding(image, self.resize, self.random_flag)
             
         
         image = np.array(image)
@@ -68,6 +66,30 @@ class OcrDataset:
             "images": torch.tensor(image, dtype=torch.float),
             "labels": torch.tensor(labels, dtype=torch.long)
         }
+
+    def make_padding(self, image, resize, random_flag):
+        desired_height, desired_width = resize[0], resize[1]
+        proportion_declared = desired_width / desired_height
+        image_proportion = image.size[0] / image.size[1]
+        new_im = Image.new("RGB", (desired_width, desired_height))
+        if image.size[0] < desired_width and image.size[1] < desired_height:
+            if random_flag:
+                new_im.paste(image, (desired_width // 2 - image.size[0] // 2,
+                                     desired_height // 2 - image.size[1] // 2))
+            else:
+                new_im.paste(image, (randint(0, desired_width - image.size[0]),
+                                     randint(0, desired_height - image.size[1])))
+        else:
+            if proportion_declared >= image_proportion:
+                image = image.resize((int(desired_height / image.size[1] * image.size[0]),
+                                      desired_height), resample=Image.BILINEAR)
+                new_im.paste(image, ((desired_width - image.size[0]) // 2, 0))
+            else:
+                image = image.resize((desired_width,
+                                      int(desired_width / image.size[0] * image.size[1])),
+                                     resample=Image.BILINEAR)
+                new_im.paste(image, (0, (desired_height - image.size[1]) // 2))
+        return new_im
 
 
 class SynthCollator(object):
