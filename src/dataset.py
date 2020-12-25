@@ -17,7 +17,7 @@ class OcrDataset:
     Put attention to resize PIL: first goes width then height
     """
     
-    def __init__(self, image_path, labels, resize=None, random_flag=False):
+    def __init__(self, image_path, labels, resize=(128, 512), random_flag=True):
         self.image_path = image_path
         self.labels = labels
         self.resize = resize
@@ -48,23 +48,25 @@ class OcrDataset:
         
     def __len__(self):
         return len(self.image_path)
-        
+
     def __getitem__(self, item):
-        image = Image.open(self.image_path[item]).convert('RGB')
+        image = Image.open(self.image_path[item]).convert('LA')
         labels = self.labels[item]
-        
+
         if self.resize is not None:
             image = self.make_padding(image, self.resize, self.random_flag)
-            
-        
+
+        im = image
         image = np.array(image)
         augmented_image = self.augmentations(image=image)
         image = augmented_image["image"]
-        image = np.transpose(image,(2,0,1)).astype(np.float32)
-        
+        image = np.transpose(image, (2, 0, 1)).astype(np.float32)
+
         return {
             "images": torch.tensor(image, dtype=torch.float),
-            "labels": torch.tensor(labels, dtype=torch.long)
+            "labels": torch.tensor(labels, dtype=torch.long),
+            "input_lenght": len(labels),
+            'picture': im
         }
 
     def make_padding(self, image, resize, random_flag):
@@ -73,7 +75,7 @@ class OcrDataset:
         image_proportion = image.size[0] / image.size[1]
         new_im = Image.new("RGB", (desired_width, desired_height))
         if image.size[0] < desired_width and image.size[1] < desired_height:
-            if random_flag:
+            if not random_flag:
                 new_im.paste(image, (desired_width // 2 - image.size[0] // 2,
                                      desired_height // 2 - image.size[1] // 2))
             else:

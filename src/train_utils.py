@@ -1,7 +1,7 @@
 from tqdm import tqdm
 import torch
 from config import *
-
+import numpy as np
 
 
 def train(model, dataloader, optimizer):
@@ -17,7 +17,7 @@ def train(model, dataloader, optimizer):
         optimizer.step()
         final_loss += loss.item()
     return final_loss / len(dataloader)
-    
+
 
 def evaluate(model, dataloader):
     model.eval()
@@ -33,7 +33,8 @@ def evaluate(model, dataloader):
             final_predictions.append(batch_predictions)
             final_loss += loss.item()
         return final_predictions, final_loss / len(dataloader)
-        
+
+
 def transform_timeseries_string(batch):
     new_batch = []
     for string in batch:
@@ -50,23 +51,34 @@ def transform_timeseries_string(batch):
         new_batch.append(new_string)
     return new_batch
 
-def sybol_wise_accuracy(true, pred):
+
+def symbol_wise_accuracy(true, pred):
     num_true_symbol = 0
     for index in range(min(len(true), len(pred))):
         if pred[index] == true[index]:
             num_true_symbol += 1
     return num_true_symbol / len(true)
 
-def sybol_wise_accuracy_batch(true, pred):
+
+def symbol_wise_accuracy_batch(true, pred):
     acc = 0.0
     for batch_ind in range(len(true)):
-        acc += sybol_wise_accuracy(true[batch_ind], pred[batch_ind])
+        acc += symbol_wise_accuracy(true[batch_ind], pred[batch_ind])
     return acc / len(true)
 
-def string_wise_accuracy_batch(pred, true):
+
+def string_wise_accuracy_batch(true, pred, errors_to_omit=0):
     num_correct_strings = 0
     for batch_ind in range(len(true)):
-        if ''.join(pred[batch_ind]) == ''.join(true[batch_ind]):
+        true_word = true[batch_ind]
+        pred_word = pred[batch_ind]
+        if len(true_word) != len(pred_word):
+            if len(true_word) > len(pred_word):
+                pred_word = pred_word + ['no_symbol'] * abs(len(true_word) - len(pred_word))
+            else:
+                true_word = true_word + ['no_symbol'] * abs(len(true_word) - len(pred_word))
+        bool_array = np.array(true_word) == np.array(pred_word)
+        if len(true_word) - np.sum(bool_array) <= errors_to_omit:
             num_correct_strings += 1
+
     return num_correct_strings / len(true)
-   
