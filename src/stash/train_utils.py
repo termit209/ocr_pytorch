@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import torch
-from config import *
+from stash.config import *
 
 
 
