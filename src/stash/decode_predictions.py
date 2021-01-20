@@ -20,4 +20,4 @@ def decode_preds(preds, encoder):
         element = "".join(tmp)
         preds_list.append(element)
     return preds_list
-    
+    # Если нужно, то перенести в src/utils и подтягивать оттуда

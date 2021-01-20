@@ -3,7 +3,7 @@ import torch
 from sklearn import model_selection
 
 from stash.config import *
-from stash.dataset import OcrDataset
+from dataset import OcrDataset
 
 from stash.model import OcrModel_v0
 from stash.train_utils import train, evaluate
@@ -19,7 +19,7 @@ def fit():
         test_labels, 
         train_orig_labels, 
         test_orig_targets,
-    )   =model_selection.train_test_split(
+    ) = model_selection.train_test_split(
             IMAGES, LABELS_ENCODED, LABELS_NAMES, test_size=0.1, random_state=2020)
     
     train_dataset = OcrDataset(image_path=train_img, 
