@@ -8,9 +8,10 @@ from sklearn import metrics
 from config import *
 
 from model import OcrModel
-from constants import IMAGE_HEIGHT, IMAGE_WIDTH
+from constants import IMAGE_FOLDERS, LABELS_LIST
 from train_utils import train, evaluate
 from dataset import OcrDataset
+from utils import create_label_dict
 
 
 def fit(model, train_loader, val_loader, config: Config):
@@ -26,15 +27,12 @@ def fit(model, train_loader, val_loader, config: Config):
 
 
 if __name__ == '__main__':
-    full_df = pd.DataFrame()
-    for dataset_path in config.dataset_paths:
-        cur_df = pd.read_csv(dataset_path, sep='\t')
-        full_df = pd.concat([full_df, cur_df], axis=0, ignore_index=False)
-    train_df, val_df = model_selection.train_test_split(full_df, test_size=0.1, random_state=2020)
+    label_dict = create_label_dict(IMAGE_FOLDERS, LABELS_LIST)
+    img_paths, labels_names = labels_dict.keys(), labels_dict.values()
 
     train_dataset = OcrDataset(
         df=train_df,
-        resize=(IMAGE_HEIGHT, IMAGE_WIDTH)
+        resize=config.shape
     )
 
     train_loader = torch.utils.data.DataLoader(
@@ -53,8 +51,7 @@ if __name__ == '__main__':
         val_dataset,
         batch_size=config.batch_size,
         num_workers=config.n_workers,
-        shuffle=False,
-        collate_fn=SynthCollator()
+        shuffle=False
     )
 
     fit()

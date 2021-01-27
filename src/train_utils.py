@@ -69,3 +69,11 @@ def string_wise_accuracy_batch(pred, true):
         if ''.join(pred[batch_ind]) == ''.join(true[batch_ind]):
             num_correct_strings += 1
     return num_correct_strings / len(true)
+
+def set_seed(seed):
+    if seed:
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        np.random.seed(seed)
+    else:
+        pass
