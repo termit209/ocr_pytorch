@@ -1,4 +1,3 @@
-import glob
 import os
 import numpy as np
 from sklearn import preprocessing
@@ -10,9 +9,9 @@ from config import Config
 def get_labels_encode(labels_names):
     labels_names = [[_ for _ in x] for x in labels_names]
     labels_names_flat = [_ for sublist in labels_names for _ in sublist]
-    labels_encoded = preprocessing.LabelEncoder()
-    labels_encoded.fit(labels_names_flat)
-    return np.array([labels_encoded.transform(x) for x in labels_names]) + 1
+    labels_encoder = preprocessing.LabelEncoder()
+    labels_encoder.fit(labels_names_flat)
+    return np.array([labels_encoder.transform(x) for x in labels_names]) + 1, labels_encoder
 
 def create_label_dict(image_folders, labels_list):
     df = pd.read_csv(f"/content/{labels_list[0]}", delimiter='\t')

@@ -1,35 +1,172 @@
-from torch import nn
-from torch import functional as F
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+from torchvision import models
+from efficientnet_pytorch import EfficientNet
 
 
-class OcrModel(nn.Module):
+class OcrModel_mobilenet(nn.Module):
     def __init__(self, num_characters):
-        super(OcrModel, self).__init__()
-        self.conv1 = nn.Conv2d(3, 128, kernel_size=(3, 3), padding=(1, 1))
-        self.maxpool1 = nn.MaxPool2d(kernel_size=(2, 2))
-        self.conv2 = nn.Conv2d(128, 64, kernel_size=(3, 3), padding=(1, 1))
-        self.maxpool2 = nn.MaxPool2d(kernel_size=(2, 2))
+        super(OcrModel_mobilenet, self).__init__()
+        mobilenet = models.mobilenet_v2()
+        self.mobilenet_feature_extractor = nn.Sequential(*list(mobilenet.children())[:-1])
+        self.linear1 = nn.Linear(int(1280*10*3/64), 64)
+        self.dropout1  = nn.Dropout(0.2)
+        self.gru = nn.GRU(64, 32 , bidirectional=True,
+                          num_layers=2,
+                          dropout=0.25,
+                          batch_first=True)
+        self.output = nn.Linear(64, num_characters + 4)
+        
+    def forward(self, images, label_size, labels=None):
+        bs, c, h, w = images.size()
+        out = F.relu(self.mobilenet_feature_extractor(images))# 32 1280 7 7
+        #print(out.size())
+
+        x = out.permute(0,3,1,2) # 32 10, 1280, 3
+        #print(x.size())
+        x = torch.reshape(x,(bs, 64, int(1280*10*3/64)))#32 49 1280
+        #print(x.size())
+        x = self.linear1(x)
+        x = self.dropout1(x)
+        #print(x.size())
+
+
+        x, _ = self.gru(x)
+        #print(x.size())
+        x = self.output(x)
+        #print(x.size())
+        # permute again 
+        x = x.permute(1,0,2)
+        return x
+
+
+class OcrModel_vgg16(nn.Module):
+    def __init__(self, num_characters):
+        super(OcrModel_vgg16, self).__init__()
+        vgg = models.vgg16_bn(pretrained=True)
+        self.vgg_feature_extractor = nn.Sequential(*list(vgg.children())[:-1])
+        self.linear1 = nn.Linear(256, 64)
+        self.dropout1  = nn.Dropout(0.2)
+        self.gru = nn.GRU(64, 32 , bidirectional=True,
+                          num_layers=2,
+                          dropout=0.25,
+                          batch_first=True)
+        self.output = nn.Linear(64, num_characters + 4)
+        
+    def forward(self, images, label_size, labels=None):
+        bs, c, h, w = images.size()
+        out = F.relu(self.vgg_feature_extractor(images))
+        #print(out.size())
+
+        x = out.permute(0,3,1,2) # 32 7 512  7 
+        # print(x.size()) 512 7 7 
+        x = torch.reshape(x,(bs, 7*7*2, 256))#view(bs, 7*7*2, 256)  # 32 7 512*7 
+        # print(x.size()[2])
+        x = self.linear1(x)
+        x = self.dropout1(x)
+        #print(x.size())
+
+
+        x, _ = self.gru(x)
+        #print(x.size())
+        x = self.output(x)
+        #print(x.size())
+        # permute again 
+        x = x.permute(1,0,2)
+        #print(x.size())
+        return x
+
+
+class OcrModel_v0(nn.Module):
+    def __init__(self, num_characters):
+        super(OcrModel_v0, self).__init__()
+        self.conv1 = nn.Conv2d(3,128, kernel_size=(3,3), padding=(1,1))
+        self.maxpool1 = nn.MaxPool2d(kernel_size=(2,2))
+        self.conv2 = nn.Conv2d(128,64, kernel_size=(3,3), padding=(1,1))
+        self.maxpool2 = nn.MaxPool2d(kernel_size=(2,2))
         self.linear1 = nn.Linear(1152, 64)
-        self.dropout1 = nn.Dropout(0.2)
-        self.gru = nn.GRU(64, 32, bidirectional=True,
+        self.dropout1  = nn.Dropout(0.2)
+        self.gru = nn.GRU(64, 32 , bidirectional=True,
                           num_layers=2,
                           dropout=0.25,
                           batch_first=True)
         self.output = nn.Linear(64, num_characters + 1)
-
-    def forward(self, images):
+        
+    def forward(self, images, label_size, labels=None):
         bs, c, h, w = images.size()
+        #print(bs, c, h, w)
         x = F.relu(self.conv1(images))
+        #print(x.size())
         x = self.maxpool1(x)
+        #print(x.size()) 
         x = F.relu(self.conv2(x))
-        x = self.maxpool2(x)
-        x = x.permute(0, 3, 1, 2)
-        x = x.view(bs, x.size(1), -1)
+        #print(x.size())
+        x = self.maxpool2(x) # 32 512 7 7 
+        # need to change channels for rnn bs, f, h, w --> bs, w, f, h
+
+
+        x = x.permute(0,3,1,2) # 32 7 512  7 
+        #print(x.size()) # 512 7 7 
+        x = x.view(bs, x.size(1),-1)  # 32 7 512*7  x.view(bs, 7*7*2, 256) -1
+        #print(x.size()[2], x.size())
         x = self.linear1(x)
         x = self.dropout1(x)
+        #print(x.size())
+
         x, _ = self.gru(x)
+        #print(x.size())
+
         x = self.output(x)
-        x = x.permute(1, 0, 2)
+        #print(x.size())
+        # permute again 
+        x = x.permute(1,0,2)
+        #print(x.size())
+        return x
+
+class OcrModel_effnetb0(nn.Module):
+    def __init__(self, num_characters):
+        super(OcrModel_effnetb0, self).__init__()
+        self.effnet = EfficientNet.from_pretrained('efficientnet-b0')
+        self.bn1 = nn.BatchNorm2d(1280)
+        self.linear1 = nn.Linear(640, 64)
+        self.dropout1  = nn.Dropout(0.2)
+        self.gru = nn.GRU(64, 32 , bidirectional=True,
+                          num_layers=2,
+                          dropout=0.25,
+                          batch_first=True)
+        self.output = nn.Linear(64, num_characters + 1)
+        
+    def forward(self, images, label_size, labels=None):
+        bs, c, h, w = images.size()
+        #print(images.size())
+        out = self.effnet.extract_features(images)
+        x = self.bn1(out)
+        #print(out.size())# 32 1280 4 16
+
+        x = x.permute(0,3,1,2) #32 10 1280 3
+        #print(x.size())
+        x = torch.reshape(x,(bs, 16*4*2, 640))
+        #print(x.size())
+        x = self.linear1(x)
+        x = self.dropout1(x)
+        #print (x.size())
+
+
+        x, _ = self.gru(x)
+        #print(x.size())
+        x = self.output(x)
+        #print(x.size())
+        # permute again 
+        x = x.permute(1,0,2)
+       # print(x.size())
+            
         return x
 
 
+if __name__ == '__main__':
+    # model = OcrModel_v0(model_arch='gluon_seresnext50_32x4d', num_characters=19, pretrained=True)
+    model = OcrModel_v0(num_characters=91)
+    img = torch.rand(5,3,75,300)
+    label = torch.randint(1,20,(5,5))
+    x = model(img, label)

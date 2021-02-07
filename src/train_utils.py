@@ -1,34 +1,69 @@
-from tqdm import tqdm
 import torch
+import torch.nn as nn
+from torch.nn import functional as F
+import numpy as np
+
 from config import Config
 
 
-def train(model, dataloader, optimizer, config: Config):
+def train(model, dataloader, optimizer, device):
     model.train()
     final_loss = 0
-    tracker = tqdm(dataloader, total=len(dataloader))
-    for data in tracker:
+    for data in dataloader:
         for key, value in data.items():
-            data[key] = value.to(config.device)
+            data[key] = value.to(device)
         optimizer.zero_grad()
-        _, loss = model(**data)
+        x = model(**data)
+
+        data['label_size']
+        log_softmax_values = F.log_softmax(x, 2)
+        input_lenghts = torch.full(size=(len(data['images']),),
+                                   fill_value=log_softmax_values.size(0),
+                                   dtype=torch.int32
+                                   )
+
+        output_lenghts = data['label_size']
+        labels = data['labels']
+
+        loss = nn.CTCLoss(blank=0, zero_infinity=True)(
+            log_softmax_values,
+            labels,
+            input_lenghts,
+            output_lenghts)
+
         loss.backward()
         optimizer.step()
         final_loss += loss.item()
     return final_loss / len(dataloader)
     
 
-def evaluate(model, dataloader, config: Config):
+def evaluate(model, dataloader, device):
     model.eval()
     final_loss = 0
-    tracker = tqdm(dataloader, total=len(dataloader))
+    final_predictions = []
     with torch.no_grad():
-        for data in tracker:
+        for data in dataloader:
             for key, value in data.items():
-                data[key] = value.to(config.device)
-            batch_predictions, loss = model(**data)
+                data[key] = value.to(device)
+            x = model(**data)
+            log_softmax_values = F.log_softmax(x, 2)
+            input_lenghts = torch.full(size=(len(data['images']),),
+                                   fill_value=log_softmax_values.size(0),
+                                   dtype=torch.int32
+                                   )
+
+            output_lenghts = data['label_size']
+            labels = data['labels']
+
+            loss = nn.CTCLoss(blank=0, zero_infinity=True)(
+            log_softmax_values,
+            labels,
+            input_lenghts,
+            output_lenghts)
+
+            final_predictions.append(x)
             final_loss += loss.item()
-        return final_loss / len(dataloader)
+        return final_predictions, final_loss / len(dataloader)
 
 
 def transform_timeseries_string(batch):
@@ -77,3 +112,21 @@ def set_seed(seed):
         np.random.seed(seed)
     else:
         pass
+
+def decode_preds(preds, encoder):
+    preds = preds.permute(1,0,2)
+    preds = torch.softmax(preds,2)
+    preds = torch.argmax(preds,2)
+    preds = preds.detach().cpu().numpy()
+    preds_list  = []
+    for i in range(preds.shape[0]):
+        tmp = []
+        for j in preds[i,:]:
+            j = j-1
+            if j == -1:
+                tmp.append("*")
+            else:
+                tmp.append(encoder.inverse_transform([j])[0])
+        element = "".join(tmp)
+        preds_list.append(element)
+    return preds_list
